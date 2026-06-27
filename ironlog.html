@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ironlog — Calorie & Macro Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ===========================================================================
+   Ironlog design system — "cast-iron instrument"
+   =========================================================================== */
+:root {
+  --bg: #0e0f12;
+  --surface: #16181d;
+  --surface-2: #1c1f26;
+  --line: #262a33;
+  --line-strong: #353a45;
+  --text: #f2f3f5;
+  --muted: #8a9099;
+  --faint: #5a606b;
+  --accent: #ff5436;
+  --protein: #36d399;
+  --carbs: #f5a524;
+  --fat: #9b8aff;
+  --rest: #6bb6ff;
+  --font-display: "Saira Condensed", system-ui, sans-serif;
+  --font-head: "Saira", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius: 10px;
+  --radius-sm: 7px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(1200px 600px at 50% -10%, rgba(255,84,54,0.05), transparent 70%);
+}
+button { font-family: inherit; cursor: pointer; }
+input, select {
+  font-family: var(--font-body);
+}
+
+/* shell */
+.app { max-width: 1080px; margin: 0 auto; padding: 22px 20px 80px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-family: var(--font-display); font-weight: 800; font-size: 28px; letter-spacing: 0.04em; margin: 0; text-transform: uppercase; }
+.brand .tick { width: 9px; height: 22px; background: var(--accent); border-radius: 2px; transform: translateY(2px); }
+.brand .sub { font-family: var(--font-mono); font-size: 11px; color: var(--faint); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* date + day toggle */
+.controls { display: flex; align-items: center; gap: 10px; }
+.stepper { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.stepper button { background: transparent; border: none; color: var(--muted); padding: 8px 12px; font-size: 16px; line-height: 1; }
+.stepper button:hover { color: var(--text); background: var(--surface-2); }
+.stepper button:disabled { opacity: 0.3; cursor: not-allowed; }
+.stepper .label { font-family: var(--font-head); font-weight: 600; font-size: 14px; padding: 0 10px; min-width: 96px; text-align: center; }
+.daytoggle { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 3px; gap: 3px; }
+.daytoggle button { border: none; background: transparent; color: var(--muted); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 6px 11px; border-radius: 5px; }
+.daytoggle button.on[data-kind="training"] { background: rgba(255,84,54,0.16); color: var(--accent); }
+.daytoggle button.on[data-kind="rest"] { background: rgba(77,163,255,0.16); color: var(--rest); }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.tabs button { background: transparent; border: none; color: var(--muted); font-family: var(--font-head); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; padding: 10px 14px; position: relative; }
+.tabs button:hover { color: var(--text); }
+.tabs button.active { color: var(--text); }
+.tabs button.active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--accent); }
+
+/* cards */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.card-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; }
+.grid { display: grid; gap: 16px; }
+.grid.today { grid-template-columns: 320px 1fr; }
+.grid.cols2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 760px) {
+  .grid.today, .grid.cols2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .row.r4, .row.r3 { grid-template-columns: 1fr 1fr; }
+}
+
+/* calorie ring */
+.ring-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-big { font-family: var(--font-display); font-weight: 800; font-size: 56px; line-height: 0.9; letter-spacing: 0.01em; }
+.ring-unit { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
+.ring-sub { font-family: var(--font-mono); font-size: 12px; color: var(--faint); margin-top: 2px; }
+
+/* macro rails */
+.rail { margin-bottom: 16px; }
+.rail:last-child { margin-bottom: 0; }
+.rail-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+.rail-name { font-family: var(--font-head); font-weight: 600; font-size: 14px; }
+.rail-name .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; }
+.rail-val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.rail-val b { color: var(--text); font-weight: 600; }
+.rail-track { height: 12px; background: var(--surface-2); border-radius: 3px; overflow: hidden; border: 1px solid var(--line); }
+.rail-fill { height: 100%; border-radius: 2px; transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
+.rail-fill.over { background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.18) 5px, rgba(0,0,0,0.18) 10px); }
+
+/* chips */
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+.chip { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; }
+.chip .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.chip .v { font-family: var(--font-display); font-weight: 700; font-size: 24px; margin-top: 2px; }
+
+/* meal list / log */
+.meal-group { margin-bottom: 18px; }
+.meal-group:last-child { margin-bottom: 0; }
+.meal-label { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.entry { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.entry .name { font-size: 14px; font-weight: 500; }
+.entry .meta { font-family: var(--font-mono); font-size: 11px; color: var(--faint); }
+.entry .macros { font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.entry .kcal { font-family: var(--font-display); font-weight: 700; font-size: 18px; min-width: 56px; text-align: right; }
+.entry .del { background: transparent; border: none; color: var(--faint); font-size: 16px; padding: 2px 6px; border-radius: 5px; line-height: 1; }
+.entry .del:hover { color: var(--accent); background: rgba(255,84,54,0.1); }
+.entry-main { display: flex; flex-direction: column; gap: 2px; }
+.entry-right { display: flex; align-items: center; gap: 10px; }
+
+/* forms */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--faint); }
+input, select { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--text); padding: 9px 11px; font-size: 14px; width: 100%; }
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,84,54,0.16); }
+.row { display: grid; gap: 10px; }
+.row.r2 { grid-template-columns: 1fr 1fr; }
+.row.r3 { grid-template-columns: 1fr 1fr 1fr; }
+.row.r4 { grid-template-columns: repeat(4, 1fr); }
+
+.btn { background: var(--accent); color: #1a0a06; border: none; border-radius: var(--radius-sm); font-family: var(--font-head); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; padding: 10px 16px; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--line-strong); }
+.btn.ghost:hover { filter: none; border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.full { width: 100%; }
+
+/* food picker */
+.picker-list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.picker-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid transparent; }
+.picker-item:hover { background: var(--surface-2); border-color: var(--line); }
+.picker-item .pname { font-size: 13px; font-weight: 500; }
+.picker-item .pserv { font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+.picker-item .pcal { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.picker-add { display: flex; align-items: center; gap: 6px; }
+.picker-add input { width: 56px; padding: 5px 7px; font-size: 12px; text-align: center; font-family: var(--font-mono); }
+.picker-add button { background: var(--surface); border: 1px solid var(--line-strong); color: var(--text); border-radius: 6px; width: 28px; height: 28px; font-size: 16px; line-height: 1; }
+.picker-add button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* misc */
+.muted { color: var(--muted); }
+.empty { font-size: 13px; color: var(--faint); padding: 14px 0; text-align: center; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.section-gap { margin-top: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* charts */
+.chart { width: 100%; height: auto; display: block; }
+.chart text { font-family: var(--font-mono); fill: var(--faint); font-size: 10px; }
+.chart .grid-line { stroke: var(--line); stroke-width: 1; }
+.chart .axis-line { stroke: var(--line-strong); stroke-width: 1; }
+
+/* boot */
+.boot { display: flex; align-items: center; justify-content: center; height: 60vh; font-family: var(--font-mono); color: var(--faint); letter-spacing: 0.1em; text-transform: uppercase; font-size: 12px; }
+
+.metrics { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+.metric .mk { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.metric .mv { font-family: var(--font-display); font-weight: 700; font-size: 22px; }
+.hint { font-family: var(--font-mono); font-size: 11px; color: var(--faint); margin-top: 10px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="root"><div class="boot">loading instrument…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+/* ----- constants --------------------------------------------------------- */
+const KG_TO_LB = 2.20462;
+const MEALS = ["breakfast", "lunch", "dinner", "snack"];
+const MACRO_COLORS = { protein: "var(--protein)", carbs: "var(--carbs)", fat: "var(--fat)" };
+const ACTIVITY_FACTORS = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, athlete: 1.9 };
+const GOAL_ADJUSTMENTS = {
+  cut: { training: -400, rest: -600 },
+  maintain: { training: 0, rest: 0 },
+  bulk: { training: 250, rest: 100 },
+};
+const PROTEIN_G_PER_LB = 1.0;
+const FAT_G_PER_LB = 0.35;
+const STORAGE_KEY = "ironlog:v1";
+
+/* ----- date helpers ------------------------------------------------------ */
+const pad = (n) => String(n).padStart(2, "0");
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function shiftISO(iso, days) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+}
+function parseISO(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+function prettyDate(iso) {
+  if (iso === todayISO()) return "Today";
+  if (iso === shiftISO(todayISO(), -1)) return "Yesterday";
+  return parseISO(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+function shortDate(iso) {
+  return parseISO(iso).toLocaleDateString(undefined, { month: "numeric", day: "numeric" });
+}
+const round = (n) => Math.round(n);
+const r1 = (n) => Math.round(n * 10) / 10;
+
+function movingAverage(values, window = 7) {
+  return values.map((_, i) => {
+    if (i < window - 1) return null;
+    let sum = 0;
+    for (let j = i - window + 1; j <= i; j++) sum += values[j];
+    return sum / window;
+  });
+}
+const uid = () =>
+  (crypto.randomUUID ? crypto.randomUUID() : "id-" + Math.random().toString(36).slice(2) + Date.now());
+
+/* ----- nutrition math (ported from backend) ------------------------------ */
+function mifflinStJeor(sex, weightKg, heightCm, age) {
+  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
+  return base + (sex === "male" ? 5 : -161);
+}
+function macrosForCalories(calories, weightKg) {
+  const lb = weightKg * KG_TO_LB;
+  const protein_g = round(PROTEIN_G_PER_LB * lb);
+  const fat_g = round(FAT_G_PER_LB * lb);
+  const remaining = calories - (protein_g * 4 + fat_g * 9);
+  const carbs_g = Math.max(0, round(remaining / 4));
+  return { calories, protein_g, carbs_g, fat_g };
+}
+function suggestTargets(p) {
+  const bmr = mifflinStJeor(p.sex, p.weight_kg, p.height_cm, p.age);
+  const factor = ACTIVITY_FACTORS[p.activity_level] ?? 1.55;
+  const tdee = bmr * factor;
+  const adj = GOAL_ADJUSTMENTS[p.goal] ?? GOAL_ADJUSTMENTS.maintain;
+  return {
+    bmr: round(bmr),
+    tdee: round(tdee),
+    training: macrosForCalories(round(tdee + adj.training), p.weight_kg),
+    rest: macrosForCalories(round(tdee + adj.rest), p.weight_kg),
+  };
+}
+
+/* ----- seed data (mirrors backend seed.py) ------------------------------- */
+const SEED_FOODS = [
+  ["Chicken breast, grilled", "100 g", 165, 31.0, 0.0, 3.6],
+  ["White rice, cooked", "100 g", 130, 2.7, 28.0, 0.3],
+  ["Rolled oats, dry", "40 g", 150, 5.0, 27.0, 3.0],
+  ["Whey protein isolate", "1 scoop (30 g)", 120, 25.0, 2.0, 1.5],
+  ["Whole egg, large", "1 egg", 72, 6.3, 0.4, 4.8],
+  ["Egg whites", "100 g", 52, 11.0, 0.7, 0.2],
+  ["Sweet potato, baked", "100 g", 90, 2.0, 21.0, 0.1],
+  ["Greek yogurt, nonfat", "170 g", 100, 17.0, 6.0, 0.7],
+  ["Lean ground beef 93/7", "100 g", 152, 21.0, 0.0, 7.0],
+  ["Banana", "1 medium", 105, 1.3, 27.0, 0.4],
+  ["Almonds", "28 g", 164, 6.0, 6.0, 14.0],
+  ["Olive oil", "1 tbsp", 119, 0.0, 0.0, 13.5],
+  ["Broccoli, steamed", "100 g", 35, 2.4, 7.0, 0.4],
+  ["Salmon, baked", "100 g", 208, 20.0, 0.0, 13.0],
+  ["Peanut butter", "1 tbsp", 94, 4.0, 3.0, 8.0],
+];
+
+function buildSeed() {
+  const foods = SEED_FOODS.map(([name, serving_label, calories, protein_g, carbs_g, fat_g]) => ({
+    id: uid(), name, serving_label, calories, protein_g, carbs_g, fat_g,
+  }));
+  const byName = {};
+  foods.forEach((f) => (byName[f.name] = f));
+
+  const profile = {
+    sex: "male", age: 25, height_cm: 180, weight_kg: 84,
+    activity_level: "very", goal: "bulk",
+    train_calories: 3050, train_protein_g: 185, train_carbs_g: 370, train_fat_g: 70,
+    rest_calories: 2700, rest_protein_g: 185, rest_carbs_g: 280, rest_fat_g: 72,
+  };
+
+  const logs = {};
+  const dayTypes = {};
+  const weights = {};
+  const start = shiftISO(todayISO(), -13);
+  let weight = 83.4;
+
+  const mk = (food, servings) => ({
+    id: uid(), food_id: food.id, name: food.name, servings,
+    calories: r1(food.calories * servings),
+    protein_g: r1(food.protein_g * servings),
+    carbs_g: r1(food.carbs_g * servings),
+    fat_g: r1(food.fat_g * servings),
+  });
+
+  for (let offset = 0; offset < 14; offset++) {
+    const day = shiftISO(start, offset);
+    const wd = parseISO(day).getDay(); // 0 Sun .. 6 Sat
+    const isRest = wd === 0 || wd === 3; // Sun + Wed
+    dayTypes[day] = isRest ? "rest" : "training";
+
+    const entries = [];
+    entries.push({ ...mk(byName["Rolled oats, dry"], 1.5), meal: "breakfast" });
+    entries.push({ ...mk(byName["Whey protein isolate"], 1), meal: "breakfast" });
+    entries.push({ ...mk(byName["Banana"], 1), meal: "breakfast" });
+    entries.push({ ...mk(byName["Chicken breast, grilled"], 2.0), meal: "lunch" });
+    entries.push({ ...mk(byName["White rice, cooked"], isRest ? 1.5 : 2.0), meal: "lunch" });
+    entries.push({ ...mk(byName["Broccoli, steamed"], 1.5), meal: "lunch" });
+    entries.push({ ...mk(byName["Lean ground beef 93/7"], 2.0), meal: "dinner" });
+    entries.push({ ...mk(byName["Sweet potato, baked"], isRest ? 1.0 : 2.0), meal: "dinner" });
+    entries.push({ ...mk(byName["Olive oil"], 1), meal: "dinner" });
+    entries.push({ ...mk(byName["Greek yogurt, nonfat"], 1), meal: "snack" });
+    if (!isRest) entries.push({ ...mk(byName["Almonds"], 1), meal: "snack" });
+    logs[day] = entries;
+
+    const noise = offset % 2 === 0 ? 0.3 : -0.2;
+    weights[day] = r1(weight + noise);
+    weight += 0.045;
+  }
+
+  return { profile, foods, logs, dayTypes, weights };
+}
+
+/* ----- storage layer ----------------------------------------------------- */
+const store = {
+  async load() {
+    try {
+      const r = await window.storage.get(STORAGE_KEY);
+      return r && r.value ? JSON.parse(r.value) : null;
+    } catch (e) {
+      return null; // key missing or storage unavailable
+    }
+  },
+  async save(state) {
+    try { await window.storage.set(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  },
+};
+
+/* ----- summary computation ----------------------------------------------- */
+const EMPTY_TOTALS = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+function sumEntries(entries) {
+  return (entries || []).reduce(
+    (a, e) => ({
+      calories: a.calories + e.calories,
+      protein_g: a.protein_g + e.protein_g,
+      carbs_g: a.carbs_g + e.carbs_g,
+      fat_g: a.fat_g + e.fat_g,
+    }),
+    { ...EMPTY_TOTALS }
+  );
+}
+function targetFor(profile, dayType) {
+  return dayType === "rest"
+    ? { calories: profile.rest_calories, protein_g: profile.rest_protein_g, carbs_g: profile.rest_carbs_g, fat_g: profile.rest_fat_g }
+    : { calories: profile.train_calories, protein_g: profile.train_protein_g, carbs_g: profile.train_carbs_g, fat_g: profile.train_fat_g };
+}
+
+/* ----- widgets: ring + rail (ported) ------------------------------------- */
+function CalorieRing({ consumed, target }) {
+  const size = 230, stroke = 18;
+  const rad = (size - stroke) / 2;
+  const circ = 2 * Math.PI * rad;
+  const pct = target > 0 ? Math.min(consumed / target, 1) : 0;
+  const over = consumed > target;
+  const remaining = round(target - consumed);
+  return (
+    <div className="ring-wrap">
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} role="img" aria-label="Calorie progress">
+          <circle cx={size/2} cy={size/2} r={rad} fill="none" stroke="var(--surface-2)" strokeWidth={stroke} />
+          <circle
+            cx={size/2} cy={size/2} r={rad} fill="none"
+            stroke={over ? "var(--accent)" : "var(--protein)"} strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+            transform={`rotate(-90 ${size/2} ${size/2})`}
+            style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.22,1,0.36,1)" }}
+          />
+        </svg>
+        <div className="ring-center">
+          <div className="ring-big" style={{ color: over ? "var(--accent)" : "var(--text)" }}>
+            {over ? `+${Math.abs(remaining)}` : remaining}
+          </div>
+          <div className="ring-unit">{over ? "kcal over" : "kcal left"}</div>
+          <div className="ring-sub">{round(consumed)} / {round(target)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MacroRail({ label, color, consumed, target }) {
+  const pct = target > 0 ? Math.min(consumed / target, 1) : 0;
+  const over = consumed > target;
+  const left = round(target - consumed);
+  return (
+    <div className="rail">
+      <div className="rail-head">
+        <span className="rail-name"><span className="dot" style={{ background: color }} />{label}</span>
+        <span className="rail-val">
+          <b>{round(consumed)}</b> / {round(target)} g
+          {over ? <span style={{ color: "var(--accent)" }}> · +{Math.abs(left)}</span> : <span> · {left} left</span>}
+        </span>
+      </div>
+      <div className="rail-track">
+        <div className={`rail-fill${over ? " over" : ""}`} style={{ width: `${pct * 100}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+/* ----- charts (hand-built SVG) ------------------------------------------- */
+function WeightChart({ series }) {
+  // series: [{date, kg}] ascending
+  if (series.length < 2) return <div className="empty">Log at least two weigh-ins to see a trend.</div>;
+  const W = 720, H = 250, padL = 48, padR = 16, padT = 16, padB = 28;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = series.length;
+  const values = series.map((d) => d.kg);
+  const avg = movingAverage(values, 7);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  const padv = Math.max(0.4, (hi - lo) * 0.15);
+  lo -= padv; hi += padv;
+  const x = (i) => padL + (i / (n - 1)) * plotW;
+  const y = (v) => padT + (1 - (v - lo) / (hi - lo)) * plotH;
+
+  const gridVals = [0, 0.25, 0.5, 0.75, 1].map((t) => lo + t * (hi - lo));
+  const dailyPts = series.map((d, i) => `${x(i)},${y(d.kg)}`).join(" ");
+  const avgPts = avg.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(" ");
+  const labelIdx = [0, Math.floor((n - 1) / 2), n - 1];
+
+  return (
+    <div>
+      <svg className="chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
+        {gridVals.map((gv, i) => (
+          <g key={i}>
+            <line className="grid-line" x1={padL} x2={W - padR} y1={y(gv)} y2={y(gv)} />
+            <text x={padL - 8} y={y(gv) + 3} textAnchor="end">{r1(gv)}</text>
+          </g>
+        ))}
+        <polyline points={dailyPts} fill="none" stroke="var(--line-strong)" strokeWidth="1.5" />
+        {series.map((d, i) => (
+          <circle key={i} cx={x(i)} cy={y(d.kg)} r="2.6" fill="var(--muted)" />
+        ))}
+        {avgPts && <polyline points={avgPts} fill="none" stroke="var(--protein)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />}
+        {labelIdx.map((i) => (
+          <text key={i} x={x(i)} y={H - 8} textAnchor="middle">{shortDate(series[i].date)}</text>
+        ))}
+      </svg>
+      <div className="legend">
+        <span><i style={{ background: "var(--muted)" }} />Daily weigh-in</span>
+        <span><i style={{ background: "var(--protein)" }} />7-day average</span>
+      </div>
+    </div>
+  );
+}
+
+function CalorieBars({ days }) {
+  // days: [{date, consumed, target}] ascending
+  if (days.length === 0) return <div className="empty">No logged days yet.</div>;
+  const W = 720, H = 250, padL = 48, padR = 16, padT = 16, padB = 28;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = days.length;
+  const maxV = Math.max(...days.map((d) => Math.max(d.consumed, d.target))) * 1.12 || 1;
+  const slot = plotW / n;
+  const barW = Math.min(34, slot * 0.6);
+  const baseY = padT + plotH;
+  const y = (v) => padT + (1 - v / maxV) * plotH;
+  const avgTarget = days.reduce((a, d) => a + d.target, 0) / n;
+  const gridVals = [0, 0.25, 0.5, 0.75, 1].map((t) => t * maxV);
+
+  return (
+    <div>
+      <svg className="chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
+        {gridVals.map((gv, i) => (
+          <g key={i}>
+            <line className="grid-line" x1={padL} x2={W - padR} y1={y(gv)} y2={y(gv)} />
+            <text x={padL - 8} y={y(gv) + 3} textAnchor="end">{round(gv)}</text>
+          </g>
+        ))}
+        {days.map((d, i) => {
+          const cx = padL + slot * i + slot / 2;
+          const over = d.consumed > d.target;
+          const h = Math.max(0, baseY - y(d.consumed));
+          return (
+            <g key={i}>
+              <rect x={cx - barW / 2} y={y(d.consumed)} width={barW} height={h} rx="3"
+                fill={over ? "var(--accent)" : "var(--protein)"} opacity={over ? 0.92 : 0.85} />
+              <line x1={cx - barW / 2 - 2} x2={cx + barW / 2 + 2} y1={y(d.target)} y2={y(d.target)}
+                stroke="var(--text)" strokeWidth="1.5" opacity="0.5" />
+              {i % 2 === 0 && <text x={cx} y={H - 8} textAnchor="middle">{shortDate(d.date)}</text>}
+            </g>
+          );
+        })}
+        <line x1={padL} x2={W - padR} y1={y(avgTarget)} y2={y(avgTarget)}
+          stroke="var(--carbs)" strokeWidth="1" strokeDasharray="5 4" opacity="0.7" />
+      </svg>
+      <div className="legend">
+        <span><i style={{ background: "var(--protein)" }} />At/under target</span>
+        <span><i style={{ background: "var(--accent)" }} />Over target</span>
+        <span><i style={{ background: "var(--text)", opacity: 0.5 }} />Day target</span>
+        <span><i style={{ background: "var(--carbs)" }} />Avg target</span>
+      </div>
+    </div>
+  );
+}
+
+/* ----- pages ------------------------------------------------------------- */
+function Today({ state, date }) {
+  const entries = state.logs[date] || [];
+  const dayType = state.dayTypes[date] || "training";
+  const consumed = sumEntries(entries);
+  const target = targetFor(state.profile, dayType);
+  return (
+    <div className="grid today">
+      <div className="card">
+        <p className="card-title">{dayType === "rest" ? "Rest day" : "Training day"} · energy</p>
+        <CalorieRing consumed={consumed.calories} target={target.calories} />
+        <div className="chips">
+          <div className="chip"><div className="k">Eaten</div><div className="v">{round(consumed.calories)}</div></div>
+          <div className="chip"><div className="k">Target</div><div className="v">{round(target.calories)}</div></div>
+          <div className="chip"><div className="k">Left</div><div className="v" style={{ color: consumed.calories > target.calories ? "var(--accent)" : "var(--text)" }}>{round(target.calories - consumed.calories)}</div></div>
+        </div>
+      </div>
+      <div className="card">
+        <p className="card-title">Macros</p>
+        <MacroRail label="Protein" color={MACRO_COLORS.protein} consumed={consumed.protein_g} target={target.protein_g} />
+        <MacroRail label="Carbs" color={MACRO_COLORS.carbs} consumed={consumed.carbs_g} target={target.carbs_g} />
+        <MacroRail label="Fat" color={MACRO_COLORS.fat} consumed={consumed.fat_g} target={target.fat_g} />
+        <p className="hint">Protein holds steady across training and rest days; calories and carbs flex with the day type.</p>
+      </div>
+    </div>
+  );
+}
+
+function PickerRow({ food, onAdd }) {
+  const [servings, setServings] = useState("1");
+  const s = parseFloat(servings) || 0;
+  return (
+    <div className="picker-item">
+      <div>
+        <div className="pname">{food.name}</div>
+        <div className="pserv">{food.serving_label} · {food.calories} kcal · P{food.protein_g} C{food.carbs_g} F{food.fat_g}</div>
+      </div>
+      <div className="picker-add">
+        <input type="number" min="0" step="0.5" value={servings} onChange={(e) => setServings(e.target.value)} aria-label="servings" />
+        <button onClick={() => s > 0 && onAdd(food, s)} title="Add">+</button>
+      </div>
+    </div>
+  );
+}
+
+function QuickAdd({ onAdd }) {
+  const blank = { name: "", calories: "", protein_g: "", carbs_g: "", fat_g: "", servings: "1" };
+  const [f, setF] = useState(blank);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const ready = f.name.trim() && f.calories !== "";
+  const submit = () => {
+    if (!ready) return;
+    const servings = parseFloat(f.servings) || 1;
+    onAdd({
+      name: f.name.trim(),
+      servings,
+      calories: r1((parseFloat(f.calories) || 0) * servings),
+      protein_g: r1((parseFloat(f.protein_g) || 0) * servings),
+      carbs_g: r1((parseFloat(f.carbs_g) || 0) * servings),
+      fat_g: r1((parseFloat(f.fat_g) || 0) * servings),
+    });
+    setF(blank);
+  };
+  return (
+    <div className="stack">
+      <div className="field">
+        <label>Food name</label>
+        <input value={f.name} onChange={set("name")} placeholder="e.g. Protein bar" />
+      </div>
+      <div className="row r4">
+        <div className="field"><label>Kcal</label><input type="number" value={f.calories} onChange={set("calories")} placeholder="0" /></div>
+        <div className="field"><label>Protein</label><input type="number" value={f.protein_g} onChange={set("protein_g")} placeholder="0" /></div>
+        <div className="field"><label>Carbs</label><input type="number" value={f.carbs_g} onChange={set("carbs_g")} placeholder="0" /></div>
+        <div className="field"><label>Fat</label><input type="number" value={f.fat_g} onChange={set("fat_g")} placeholder="0" /></div>
+      </div>
+      <div className="row r2" style={{ gridTemplateColumns: "100px 1fr", alignItems: "end" }}>
+        <div className="field"><label>Servings</label><input type="number" min="0" step="0.5" value={f.servings} onChange={set("servings")} /></div>
+        <button className="btn" disabled={!ready} onClick={submit}>Add to log</button>
+      </div>
+      <p className="hint">Macros are per single serving; they're multiplied by the serving count.</p>
+    </div>
+  );
+}
+
+function Log({ state, date, addEntry, deleteEntry }) {
+  const [meal, setMeal] = useState("breakfast");
+  const [query, setQuery] = useState("");
+  const entries = state.logs[date] || [];
+  const foods = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? state.foods.filter((f) => f.name.toLowerCase().includes(q)) : state.foods;
+  }, [query, state.foods]);
+
+  const addFood = (food, servings) =>
+    addEntry(date, {
+      id: uid(), food_id: food.id, name: food.name, meal, servings,
+      calories: r1(food.calories * servings),
+      protein_g: r1(food.protein_g * servings),
+      carbs_g: r1(food.carbs_g * servings),
+      fat_g: r1(food.fat_g * servings),
+    });
+
+  const addQuick = (payload) => addEntry(date, { id: uid(), food_id: null, meal, ...payload });
+
+  return (
+    <div className="grid cols2">
+      <div className="stack">
+        <div className="card">
+          <p className="card-title">Add to meal</p>
+          <div className="daytoggle" style={{ display: "flex", marginBottom: 14 }}>
+            {MEALS.map((m) => (
+              <button key={m} data-kind={meal === m ? "training" : ""} className={meal === m ? "on" : ""} onClick={() => setMeal(m)} style={{ textTransform: "capitalize", flex: 1 }}>{m}</button>
+            ))}
+          </div>
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label>Search food library</label>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search foods…" />
+          </div>
+          <div className="picker-list">
+            {foods.map((f) => <PickerRow key={f.id} food={f} onAdd={addFood} />)}
+            {foods.length === 0 && <div className="empty">No foods match “{query}”.</div>}
+          </div>
+        </div>
+        <div className="card">
+          <p className="card-title">Quick add custom food</p>
+          <QuickAdd onAdd={addQuick} />
+        </div>
+      </div>
+
+      <div className="card">
+        <p className="card-title">Logged · {prettyDate(date)}</p>
+        {entries.length === 0 && <div className="empty">Nothing logged yet. Add something from the left.</div>}
+        {MEALS.map((m) => {
+          const group = entries.filter((e) => e.meal === m);
+          if (group.length === 0) return null;
+          const kcal = round(sumEntries(group).calories);
+          return (
+            <div className="meal-group" key={m}>
+              <div className="meal-label"><span>{m}</span><span>{kcal} kcal</span></div>
+              {group.map((e) => (
+                <div className="entry" key={e.id}>
+                  <div className="entry-main">
+                    <span className="name">{e.name}</span>
+                    <span className="meta">{e.servings}× · P{round(e.protein_g)} C{round(e.carbs_g)} F{round(e.fat_g)}</span>
+                  </div>
+                  <div className="entry-right">
+                    <span className="kcal">{round(e.calories)}</span>
+                    <button className="del" onClick={() => deleteEntry(date, e.id)} title="Remove">✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Trends({ state, addWeight }) {
+  const [w, setW] = useState("");
+  const weightSeries = useMemo(
+    () => Object.keys(state.weights).sort().map((d) => ({ date: d, kg: state.weights[d] })),
+    [state.weights]
+  );
+  const calorieDays = useMemo(() => {
+    return Object.keys(state.logs).sort().slice(-14).map((d) => ({
+      date: d,
+      consumed: round(sumEntries(state.logs[d]).calories),
+      target: targetFor(state.profile, state.dayTypes[d] || "training").calories,
+    }));
+  }, [state.logs, state.dayTypes, state.profile]);
+
+  const latest = weightSeries.length ? weightSeries[weightSeries.length - 1].kg : null;
+  const first = weightSeries.length ? weightSeries[0].kg : null;
+  const delta = latest != null && first != null ? r1(latest - first) : null;
+
+  const submitWeight = () => {
+    const v = parseFloat(w);
+    if (v > 0) { addWeight(todayISO(), r1(v)); setW(""); }
+  };
+
+  return (
+    <div className="stack">
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <p className="card-title">Bodyweight</p>
+            <div className="metrics">
+              <div className="metric"><div className="mk">Current</div><div className="mv">{latest != null ? latest + " kg" : "—"}</div></div>
+              <div className="metric"><div className="mk">14-day Δ</div><div className="mv" style={{ color: delta > 0 ? "var(--protein)" : delta < 0 ? "var(--accent)" : "var(--text)" }}>{delta != null ? (delta > 0 ? "+" : "") + delta + " kg" : "—"}</div></div>
+            </div>
+          </div>
+          <div className="picker-add" style={{ alignItems: "flex-end" }}>
+            <div className="field"><label>Log today (kg)</label><input style={{ width: 110 }} type="number" step="0.1" value={w} onChange={(e) => setW(e.target.value)} placeholder="84.0" /></div>
+            <button className="btn ghost" onClick={submitWeight} style={{ height: 38 }}>Save</button>
+          </div>
+        </div>
+        <div className="section-gap"><WeightChart series={weightSeries} /></div>
+      </div>
+
+      <div className="card">
+        <p className="card-title">Calories vs target · last 14 days</p>
+        <CalorieBars days={calorieDays} />
+      </div>
+    </div>
+  );
+}
+
+function TargetBlock({ title, accent, vals, onChange }) {
+  const set = (k) => (e) => onChange({ ...vals, [k]: parseInt(e.target.value) || 0 });
+  return (
+    <div className="card" style={{ borderColor: accent, borderWidth: 1 }}>
+      <p className="card-title" style={{ color: accent }}>{title}</p>
+      <div className="row r2">
+        <div className="field"><label>Calories</label><input type="number" value={vals.calories} onChange={set("calories")} /></div>
+        <div className="field"><label>Protein (g)</label><input type="number" value={vals.protein_g} onChange={set("protein_g")} /></div>
+        <div className="field"><label>Carbs (g)</label><input type="number" value={vals.carbs_g} onChange={set("carbs_g")} /></div>
+        <div className="field"><label>Fat (g)</label><input type="number" value={vals.fat_g} onChange={set("fat_g")} /></div>
+      </div>
+    </div>
+  );
+}
+
+function Goals({ state, saveProfile }) {
+  const p = state.profile;
+  const [form, setForm] = useState({
+    sex: p.sex, age: p.age, height_cm: p.height_cm, weight_kg: p.weight_kg,
+    activity_level: p.activity_level, goal: p.goal,
+  });
+  const [train, setTrain] = useState({ calories: p.train_calories, protein_g: p.train_protein_g, carbs_g: p.train_carbs_g, fat_g: p.train_fat_g });
+  const [rest, setRest] = useState({ calories: p.rest_calories, protein_g: p.rest_protein_g, carbs_g: p.rest_carbs_g, fat_g: p.rest_fat_g });
+  const [suggestion, setSuggestion] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  const setField = (k) => (e) => {
+    const v = ["sex", "activity_level", "goal"].includes(k) ? e.target.value : parseFloat(e.target.value) || 0;
+    setForm({ ...form, [k]: v });
+  };
+
+  const doSuggest = () => setSuggestion(suggestTargets(form));
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    setTrain({ ...suggestion.training });
+    setRest({ ...suggestion.rest });
+  };
+  const commit = () => {
+    saveProfile({
+      ...form,
+      train_calories: train.calories, train_protein_g: train.protein_g, train_carbs_g: train.carbs_g, train_fat_g: train.fat_g,
+      rest_calories: rest.calories, rest_protein_g: rest.protein_g, rest_carbs_g: rest.carbs_g, rest_fat_g: rest.fat_g,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  };
+
+  return (
+    <div className="stack">
+      <div className="card">
+        <p className="card-title">Athlete profile</p>
+        <div className="row r3">
+          <div className="field"><label>Sex</label>
+            <select value={form.sex} onChange={setField("sex")}><option value="male">Male</option><option value="female">Female</option></select>
+          </div>
+          <div className="field"><label>Age</label><input type="number" value={form.age} onChange={setField("age")} /></div>
+          <div className="field"><label>Weight (kg)</label><input type="number" step="0.1" value={form.weight_kg} onChange={setField("weight_kg")} /></div>
+          <div className="field"><label>Height (cm)</label><input type="number" value={form.height_cm} onChange={setField("height_cm")} /></div>
+          <div className="field"><label>Activity</label>
+            <select value={form.activity_level} onChange={setField("activity_level")}>
+              <option value="sedentary">Sedentary</option><option value="light">Light</option>
+              <option value="moderate">Moderate</option><option value="very">Very active</option>
+              <option value="athlete">Athlete</option>
+            </select>
+          </div>
+          <div className="field"><label>Goal</label>
+            <select value={form.goal} onChange={setField("goal")}>
+              <option value="cut">Cut</option><option value="maintain">Maintain</option><option value="bulk">Bulk</option>
+            </select>
+          </div>
+        </div>
+        <div className="btnrow section-gap">
+          <button className="btn ghost" onClick={doSuggest}>Suggest targets</button>
+          <button className="btn ghost" onClick={applySuggestion} disabled={!suggestion}>Apply suggestion ↓</button>
+        </div>
+        {suggestion && (
+          <div className="metrics section-gap">
+            <div className="metric"><div className="mk">BMR</div><div className="mv">{suggestion.bmr}</div></div>
+            <div className="metric"><div className="mk">TDEE</div><div className="mv">{suggestion.tdee}</div></div>
+            <div className="metric"><div className="mk">Train kcal</div><div className="mv" style={{ color: "var(--accent)" }}>{suggestion.training.calories}</div></div>
+            <div className="metric"><div className="mk">Rest kcal</div><div className="mv" style={{ color: "var(--rest)" }}>{suggestion.rest.calories}</div></div>
+          </div>
+        )}
+        <p className="hint">Suggestions use Mifflin–St Jeor for BMR × activity factor for TDEE, then adjust by goal per day type. Tune the numbers below to taste — they're starting points, not gospel.</p>
+      </div>
+
+      <div className="grid cols2">
+        <TargetBlock title="Training-day target" accent="var(--accent)" vals={train} onChange={setTrain} />
+        <TargetBlock title="Rest-day target" accent="var(--rest)" vals={rest} onChange={setRest} />
+      </div>
+
+      <div className="btnrow">
+        <button className="btn" onClick={commit}>Save targets</button>
+        {saved && <span style={{ alignSelf: "center", color: "var(--protein)", fontFamily: "var(--font-mono)", fontSize: 12 }}>✓ Saved</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ----- app shell --------------------------------------------------------- */
+const TABS = [
+  { id: "today", label: "Today" },
+  { id: "log", label: "Log" },
+  { id: "trends", label: "Trends" },
+  { id: "goals", label: "Goals" },
+];
+
+function App() {
+  const [state, setState] = useState(null);
+  const [tab, setTab] = useState("today");
+  const [date, setDate] = useState(todayISO());
+  const loaded = useRef(false);
+
+  // Load (or seed) once.
+  useEffect(() => {
+    (async () => {
+      const existing = await store.load();
+      setState(existing || buildSeed());
+      loaded.current = true;
+    })();
+  }, []);
+
+  // Persist on change (after initial load).
+  useEffect(() => {
+    if (loaded.current && state) store.save(state);
+  }, [state]);
+
+  if (!state) return <div className="boot">loading instrument…</div>;
+
+  const dayType = state.dayTypes[date] || "training";
+  const setDayType = (dt) => setState((s) => ({ ...s, dayTypes: { ...s.dayTypes, [date]: dt } }));
+  const addEntry = (d, entry) => setState((s) => ({ ...s, logs: { ...s.logs, [d]: [...(s.logs[d] || []), entry] } }));
+  const deleteEntry = (d, id) => setState((s) => ({ ...s, logs: { ...s.logs, [d]: (s.logs[d] || []).filter((e) => e.id !== id) } }));
+  const addWeight = (d, kg) => setState((s) => ({ ...s, weights: { ...s.weights, [d]: kg } }));
+  const saveProfile = (profile) => setState((s) => ({ ...s, profile }));
+
+  const isToday = date >= todayISO();
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="brand">
+          <span className="tick" />
+          <h1>Ironlog</h1>
+          <span className="sub">macro instrument</span>
+        </div>
+        <div className="controls">
+          <div className="daytoggle">
+            <button data-kind="training" className={dayType === "training" ? "on" : ""} onClick={() => setDayType("training")}>Training</button>
+            <button data-kind="rest" className={dayType === "rest" ? "on" : ""} onClick={() => setDayType("rest")}>Rest</button>
+          </div>
+          <div className="stepper">
+            <button onClick={() => setDate((d) => shiftISO(d, -1))} aria-label="Previous day">‹</button>
+            <span className="label">{prettyDate(date)}</span>
+            <button onClick={() => setDate((d) => shiftISO(d, 1))} aria-label="Next day" disabled={isToday}>›</button>
+          </div>
+        </div>
+      </header>
+
+      <nav className="tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>{t.label}</button>
+        ))}
+      </nav>
+
+      <main>
+        {tab === "today" && <Today state={state} date={date} />}
+        {tab === "log" && <Log state={state} date={date} addEntry={addEntry} deleteEntry={deleteEntry} />}
+        {tab === "trends" && <Trends state={state} addWeight={addWeight} />}
+        {tab === "goals" && <Goals state={state} saveProfile={saveProfile} />}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
