@@ -99,6 +99,8 @@ link (it nulls out if the food is removed) purely for convenience, not as the
 source of truth for what you ate.
 
 ---
+## Reasons
+** I wanted to make a calorie tracker that helps me track what I eat after my workout sessions. In addition, this project is a refresher on the full-stack development. I do plan to use other stacks but for this project, I treat this as a learning experience. **
 
 ## Notes
 
